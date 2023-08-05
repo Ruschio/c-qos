@@ -1,0 +1,27 @@
+{
+  "name": "Magic",
+  "prefix": "magic",
+  "uri": "http://magic",
+  "xml": {
+    "tagAlias": "lowerCase"
+  },
+  "associations": [],
+  "types": [
+    {
+      "name": "BewitchedStartEvent",
+      "superClass": [ "Element" ],
+      "properties": [
+        {
+          "name": "namee",
+          "isAttr": true,
+          "type": "String"
+        },
+        {
+          "name": "valuee",
+          "isAttr": true,
+          "type": "String"
+        }
+      ]
+    }
+  ]
+}
