@@ -11,7 +11,7 @@ import qosPropertiesProviderModule from './provider/qos';
 import qosModdleDescriptor from './descriptors/qos';
 
 import {
-  debounce
+  debounce, forEach
 } from 'min-dash';
 
 import diagramXML from '../resources/newDiagram.bpmn';
@@ -98,36 +98,40 @@ bpmnModeler.on(['commandStack.element.updateProperties.postExecuted','commandSta
   if(e.context.properties.di) return; // if background changes exit
 
   const element = e.context.element;
-  const type = pubOrSub(element);
-  if(!type || !element.businessObject.eventDefinitions[0].signalRef) return;
-  console.log(e);
-   
-  modeling.setColor(element, null);
-  const signalName = element.businessObject.eventDefinitions[0].signalRef.name;
+  if(!pubOrSub(element) || !element.businessObject.eventDefinitions[0].signalRef) return; // if not signal node exit
+  const signalName = element.businessObject.eventDefinitions[0].signalRef.name; // get signal topic name
+
   var elements = registry.filter(function(element) {
     return (
-      isSignalSupported(element) && 
+      pubOrSub(element) &&
       element.businessObject.eventDefinitions[0].signalRef &&
-      element.businessObject.eventDefinitions[0].signalRef.name == signalName &&
-      type !== pubOrSub(element) && element.type != "label"
+      element.businessObject.eventDefinitions[0].signalRef.name == signalName
     );
   });
-  elements.forEach(async el => {
-    var communication = {
-      pub: type == "pub" ? element.businessObject : el.businessObject, 
-      sub: type == "sub" ? element.businessObject : el.businessObject
-    };
-    R.execute(communication, (data) => {
-      if (data.result !== true) {
-        modeling.setColor(element, {
-          fill: 'red'
-        });
-        modeling.setColor(el, {
-          fill: 'red'
-        });
-      }
+
+  for (const i in elements) {
+    var e = elements[i];
+    modeling.setColor(e, null); // reset node color
+
+    elements.forEach(el => {
+      const type = pubOrSub(e);
+      if (type == pubOrSub(el)) return;
+      var communication = {
+        pub: type == "pub" ? e.businessObject : el.businessObject, 
+        sub: type == "sub" ? e.businessObject : el.businessObject
+      };
+      R.execute(communication, (data) => {
+        if (data.result !== true) {
+          modeling.setColor(e, {
+            fill: 'red'
+          });
+          modeling.setColor(el, {
+            fill: 'red'
+          });
+        }
+      });
     });
-  });
+  }
 });
 
 /* Evaluate if signal is publisher or subscriber */
@@ -135,6 +139,7 @@ function pubOrSub(el) {
   if(!isSignalSupported(el)) return null;
   else if(el.type == "bpmn:StartEvent" || el.type == "bpmn:IntermediateCatchEvent") return "sub";
   else if(el.type == "bpmn:EndEvent" || el.type == "bpmn:IntermediateThrowEvent") return "pub";
+  return null;
 }
 
 // ---------------- //
