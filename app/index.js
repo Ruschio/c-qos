@@ -47,11 +47,11 @@ const R = new NodeRules();
 const rule = {
   condition: (R, qos) => {
     R.when(
-      qos.pub.reliability > qos.sub.reliability ||
-      qos.pub.durability < qos.sub.durability ||
-      qos.pub.deadline < qos.sub.deadline ||
+      qos.pub.reliability < qos.sub.reliability ||
+      qos.pub.durability > qos.sub.durability ||
+      qos.pub.deadline > qos.sub.deadline ||
       qos.pub.liveliness < qos.sub.liveliness ||
-      qos.pub.leaseDuration < qos.sub.leaseDuration
+      qos.pub.leaseDuration > qos.sub.leaseDuration
     );
   },
   consequence: (R, qos) => {
@@ -61,7 +61,7 @@ const rule = {
   },
 };
 
-/* Register Rule */
+/* Register QoS rule */
 R.register(rule);
 
 bpmnModeler.on(['shape.removed'], (e) => {
@@ -95,33 +95,39 @@ bpmnModeler.on(['bpmnElement.added'], (e) => {
 bpmnModeler.on(['commandStack.element.updateProperties.postExecuted','commandStack.element.updateModdleProperties.postExecuted'], (e) => {
   e.stopPropagation();
   e.preventDefault();
+  if(e.context.properties.di) return; // if background changes exit
+
   const element = e.context.element;
   const type = pubOrSub(element);
-  
-  if(type && element.type != "label" && element.businessObject.eventDefinitions[0].signalRef && !e.context.properties.di) {   
-    modeling.setColor(element, null);
-    const signalName = element.businessObject.eventDefinitions[0].signalRef.name;
-    var elements = registry.filter(function(element) {
-      return isSignalSupported(element) && type !== pubOrSub(element) && element.type != "label";
-    });
-    elements.forEach(async el => {
-      if(el.businessObject.eventDefinitions[0].signalRef) {
-        if(el.businessObject.eventDefinitions[0].signalRef.name == signalName) {
-          var communication = {pub: el.businessObject, sub: element.businessObject};
-          R.execute(communication, (data) => {
-            if (data.result !== true) {
-              modeling.setColor(element, {
-                fill: 'red'
-              });
-              modeling.setColor(el, {
-                fill: 'red'
-              });
-            }
-          });
-        }
+  if(!type || !element.businessObject.eventDefinitions[0].signalRef) return;
+  console.log(e);
+   
+  modeling.setColor(element, null);
+  const signalName = element.businessObject.eventDefinitions[0].signalRef.name;
+  var elements = registry.filter(function(element) {
+    return (
+      isSignalSupported(element) && 
+      element.businessObject.eventDefinitions[0].signalRef &&
+      element.businessObject.eventDefinitions[0].signalRef.name == signalName &&
+      type !== pubOrSub(element) && element.type != "label"
+    );
+  });
+  elements.forEach(async el => {
+    var communication = {
+      pub: type == "pub" ? element.businessObject : el.businessObject, 
+      sub: type == "sub" ? element.businessObject : el.businessObject
+    };
+    R.execute(communication, (data) => {
+      if (data.result !== true) {
+        modeling.setColor(element, {
+          fill: 'red'
+        });
+        modeling.setColor(el, {
+          fill: 'red'
+        });
       }
     });
-  }
+  });
 });
 
 /* Evaluate if signal is publisher or subscriber */
