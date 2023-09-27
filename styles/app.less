@@ -115,7 +115,7 @@ a:link {
   bottom: 0;
   right: 0;
   width: 260px;
-  z-index: 10;
+  z-index: 100;
   border-left: 1px solid #ccc;
   background-color: #fff;
   overflow: auto;
@@ -127,5 +127,21 @@ a:link {
   > .djs-properties-panel {
     padding-bottom: 70px;
     min-height:100%;
+  }
+}
+
+#incompatibilities {
+  top: 1rem;
+  left: 90px;
+  width: auto;
+  color: #fff;
+  border-radius: .5rem;
+  background-color: #ff0000;
+  box-shadow: 0px .5rem 1rem #00000033;
+  position: fixed;
+
+  div {
+    font-size: 1.5rem;
+    padding: 1rem;
   }
 }

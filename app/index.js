@@ -17,6 +17,7 @@ import {
 import diagramXML from '../resources/newDiagram.bpmn';
 import '../styles/app.less';
 
+
 var container = $('#js-drop-zone');
 
 var bpmnModeler = new BpmnModeler({
@@ -98,7 +99,14 @@ bpmnModeler.on(['commandStack.element.updateProperties.postExecuted','commandSta
   if(e.context.properties.di) return; // if background changes exit
 
   const element = e.context.element;
-  if(!pubOrSub(element) || !element.businessObject.eventDefinitions[0].signalRef) return; // if not signal node exit
+  if(!pubOrSub(element)) return; // if not signal node exit
+  element.businessObject.incompatibilities = []; // reset incompatibilities
+  if(!element.businessObject.eventDefinitions[0].signalRef) {
+    modeling.setColor(registry.get(element.id), {
+      fill: "#fff"
+    }); // reset node color
+    return;
+  }
   const signalName = element.businessObject.eventDefinitions[0].signalRef.name; // get signal topic name
 
   var elements = registry.filter(function(element) {
@@ -110,23 +118,27 @@ bpmnModeler.on(['commandStack.element.updateProperties.postExecuted','commandSta
   });
 
   for (const i in elements) {
-    var e = elements[i];
-    modeling.setColor(e, null); // reset node color
+    const source = elements[i];
+    const type = pubOrSub(source);
+    modeling.setColor(source, {
+      fill: "#33bb77"
+    }); // reset node color
 
-    elements.forEach(el => {
-      const type = pubOrSub(e);
-      if (type == pubOrSub(el)) return;
+    elements.forEach(target => {
+      if (type == pubOrSub(target) || source.id == target.id) return;
+      source.businessObject.incompatibilities = [];
       var communication = {
-        pub: type == "pub" ? e.businessObject : el.businessObject, 
-        sub: type == "sub" ? e.businessObject : el.businessObject
+        pub: type == "pub" ? source.businessObject : target.businessObject, 
+        sub: type == "sub" ? source.businessObject : target.businessObject
       };
       R.execute(communication, (data) => {
         if (data.result !== true) {
-          modeling.setColor(e, {
-            fill: 'red'
+          source.businessObject.incompatibilities.push(target.businessObject.name);
+          modeling.setColor(source, {
+            fill: "ff0000"
           });
-          modeling.setColor(el, {
-            fill: 'red'
+          modeling.setColor(target, {
+            fill: "ff0000"
           });
         }
       });
@@ -142,6 +154,14 @@ function pubOrSub(el) {
   return null;
 }
 
+bpmnModeler.on(['element.click'], (e) => {
+  let incompatibilities = e.element.businessObject.incompatibilities;
+  if(!incompatibilities || incompatibilities.length == 0)
+    document.getElementById("incompatibilities").innerHTML = null;
+  else
+    document.getElementById("incompatibilities").innerHTML = "<div><b>INCOMPATIBILITIES WITH:</b> " + incompatibilities + "</div>";
+});
+
 // ---------------- //
 
 
@@ -150,9 +170,7 @@ function createNewDiagram() {
 }
 
 async function openDiagram(xml) {
-
   try {
-
     await bpmnModeler.importXML(xml);
 
     container
@@ -177,15 +195,11 @@ function registerFileDrop(container, callback) {
     e.preventDefault();
 
     var files = e.dataTransfer.files;
-
     var file = files[0];
-
     var reader = new FileReader();
 
     reader.onload = function(e) {
-
       var xml = e.target.result;
-
       callback(xml);
     };
 
@@ -216,7 +230,6 @@ if (!window.FileList || !window.FileReader) {
 }
 
 // bootstrap diagram functions
-
 $(function() {
 
   $('#js-create-diagram').click(function(e) {
