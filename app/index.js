@@ -57,7 +57,12 @@ const rule = {
   },
   consequence: (R, qos) => {
     qos.result = false;
-    qos.reason = "The QoS policies are not compatible";
+    qos.reasons = [];
+    if(qos.pub.reliability < qos.sub.reliability) qos.reasons.push("Reliability");
+    if(qos.pub.durability > qos.sub.durability) qos.reasons.push("Durability");
+    if(qos.pub.deadline > qos.sub.deadline) qos.reasons.push("Deadline");
+    if(qos.pub.liveliness < qos.sub.liveliness) qos.reasons.push("Liveliness");
+    if(qos.pub.leaseDuration > qos.sub.leaseDuration) qos.reasons.push("Lease duration");
     R.stop();
   },
 };
@@ -133,7 +138,10 @@ bpmnModeler.on(['commandStack.element.updateProperties.postExecuted','commandSta
       };
       R.execute(communication, (data) => {
         if (data.result !== true) {
-          source.businessObject.incompatibilities.push(target.businessObject.name);
+          source.businessObject.incompatibilities.push({
+            "name": target.businessObject.name,
+            "reasons": data.reasons
+          });
           modeling.setColor(source, {
             fill: "ff0000"
           });
@@ -158,8 +166,15 @@ bpmnModeler.on(['element.click'], (e) => {
   let incompatibilities = e.element.businessObject.incompatibilities;
   if(!incompatibilities || incompatibilities.length == 0)
     document.getElementById("incompatibilities").innerHTML = null;
-  else
-    document.getElementById("incompatibilities").innerHTML = "<div><b>INCOMPATIBILITIES WITH:</b> " + incompatibilities + "</div>";
+  else {
+    let text = "";
+    incompatibilities.forEach(e => {
+      text += "<br>";
+      text += (e.name + ": ");
+      text += e.reasons;
+    })
+    document.getElementById("incompatibilities").innerHTML = "<div><b>INCOMPATIBILITIES!</b>" + text + "</div>";
+  }
 });
 
 // ---------------- //
